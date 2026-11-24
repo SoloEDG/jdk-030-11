@@ -1,17 +1,20 @@
 import { goalCells } from "@/features/atlas";
+import { isBoxRiding } from "@/features/winch/lib/runtime";
 import { sameCell } from "@/shared/document";
 import type { GameDocument, Vec } from "@/shared/types";
 
 export function filledGoals(document: GameDocument): Vec[] {
   return goalCells(document.level).filter((cell) =>
-    document.level.boxes.some((box) => sameCell(box, cell)),
+    document.level.boxes.some((box) => sameCell(box, cell) && !isBoxRiding(document.level, box.id)),
   );
 }
 
 export function goalsSatisfied(document: GameDocument): boolean {
   const goals = goalCells(document.level);
   if (goals.length === 0) return false;
-  return goals.every((cell) => document.level.boxes.some((box) => sameCell(box, cell)));
+  return goals.every((cell) =>
+    document.level.boxes.some((box) => sameCell(box, cell) && !isBoxRiding(document.level, box.id)),
+  );
 }
 
 export function coverageLine(document: GameDocument): string {

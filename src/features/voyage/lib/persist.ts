@@ -1,4 +1,4 @@
-import type { LevelRecord } from "@/shared/types";
+import type { CamDesign, LevelRecord } from "@/shared/types";
 
 export const STORAGE_KEY = "jdk-030.voyage.v1";
 
@@ -6,6 +6,25 @@ export interface VoyageSave {
   version: 1;
   currentLevelId: string;
   records: Record<string, LevelRecord>;
+  cams?: Record<string, CamDesign>;
+}
+
+function readCams(raw: unknown): Record<string, CamDesign> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, CamDesign> = {};
+  for (const [id, cam] of Object.entries(raw as Record<string, unknown>)) {
+    if (!cam || typeof cam !== "object") continue;
+    const c = cam as Partial<CamDesign>;
+    if (!Array.isArray(c.order) || !c.order.every((p) => typeof p === "string")) continue;
+    if (typeof c.rollerDia !== "number" || typeof c.fillet !== "number") continue;
+    out[id] = {
+      order: [...c.order],
+      flips: c.flips && typeof c.flips === "object" ? { ...c.flips } : {},
+      rollerDia: c.rollerDia,
+      fillet: c.fillet,
+    };
+  }
+  return out;
 }
 
 export function readSave(): VoyageSave | null {
@@ -19,7 +38,7 @@ export function readSave(): VoyageSave | null {
       record && Number.isSafeInteger(record.bestSteps) && record.bestSteps > 0 &&
       Number.isFinite(record.clearedAt) && Number.isFinite(new Date(record.clearedAt).getTime()),
     ));
-    return { version: 1, currentLevelId: parsed.currentLevelId, records };
+    return { version: 1, currentLevelId: parsed.currentLevelId, records, cams: readCams(parsed.cams) };
   } catch {
     return null;
   }

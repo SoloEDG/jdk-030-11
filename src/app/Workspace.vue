@@ -5,11 +5,12 @@ import { GadgetPanel } from "@/features/gadget";
 import { MoverHud } from "@/features/hauler";
 import { StepMeter } from "@/features/ledger";
 import { LevelRail, RecordBoard } from "@/features/voyage";
-import { dirFromKey, shouldCapture } from "./keys";
+import { WinchDesigner, WinchPanel } from "@/features/winch";
+import { actionFromKey, shouldCapture } from "./keys";
 import { useWorkshop } from "./useWorkshop";
 
 const shop = useWorkshop();
-const { document, notice } = shop;
+const { document, notice, designerOpen } = shop;
 const { title, blurb } = shop.atlas;
 const { counts } = shop.hauler;
 const { summary } = shop.gadget;
@@ -17,11 +18,17 @@ const { steps, status, coverage } = shop.ledger;
 const { catalog, completed } = shop.voyage;
 
 function onKey(event: KeyboardEvent): void {
+  if (designerOpen.value) {
+    if (event.key === "Escape") designerOpen.value = false;
+    return;
+  }
   if (!shouldCapture(event)) return;
-  const action = dirFromKey(event);
+  const action = actionFromKey(event);
   if (!action) return;
   event.preventDefault();
   if (action === "reset") shop.reset();
+  else if (action === "crankUp") shop.crank(1);
+  else if (action === "crankDown") shop.crank(-1);
   else shop.move(action);
 }
 
@@ -55,10 +62,21 @@ onUnmounted(() => window.removeEventListener("keydown", onKey));
         <MoverHud :counts="counts" />
       </main>
       <aside class="side">
-        <StepMeter :steps="steps" :status="status" :coverage="coverage" />
+        <StepMeter :steps="steps" :status="status" :coverage="coverage" :lift-mode="!!document.level.lift" />
+        <WinchPanel
+          v-if="document.level.lift"
+          :document="document"
+          @open-designer="designerOpen = true"
+        />
         <GadgetPanel :document="document" :summary="summary" />
         <TileLegend />
       </aside>
     </div>
+    <WinchDesigner
+      v-if="designerOpen && document.level.lift"
+      :level="document.level"
+      @close="designerOpen = false"
+      @install="(design) => { if (shop.installCam(design)) designerOpen = false; }"
+    />
   </div>
 </template>

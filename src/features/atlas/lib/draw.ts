@@ -1,5 +1,6 @@
 import { tileCenter } from "./grid";
-import type { Box, Door, FloorPatch, GameDocument, Plate } from "@/shared/types";
+import { berthState, carRowFloat, isBoxRiding, isPlayerRiding } from "@/features/winch/lib/runtime";
+import type { Box, Door, FloorPatch, GameDocument, Plate, RuntimeLevel } from "@/shared/types";
 
 export const TILE = 46;
 
@@ -42,10 +43,113 @@ export function paintStage(ctx: CanvasRenderingContext2D, document: GameDocument
     }
   }
   for (const floor of level.floors) paintFloor(ctx, floor, tile);
+  if (level.lift) paintLift(ctx, level, tile);
   for (const plate of level.plates) paintPlate(ctx, plate, tile);
   for (const door of level.doors) paintDoor(ctx, door, tile);
-  for (const box of level.boxes) paintBox(ctx, box, tile);
-  paintPlayer(ctx, level.player.x, level.player.y, tile, document.attempt.status === "cleared");
+  for (const box of level.boxes) {
+    if (!isBoxRiding(level, box.id)) paintBox(ctx, box, tile);
+  }
+  const riding = isPlayerRiding(level);
+  if (!riding) {
+    paintPlayer(ctx, level.player.x, level.player.y, tile, document.attempt.status === "cleared");
+  }
+  if (level.lift) paintRiders(ctx, level, tile);
+}
+
+function paintLift(ctx: CanvasRenderingContext2D, level: RuntimeLevel, tile: number): void {
+  const lift = level.lift;
+  if (!lift) return;
+  const { order } = lift;
+  const x0 = order.shaftCols[0] * tile;
+  const width = order.shaftCols.length * tile;
+  // 井道导轨
+  ctx.fillStyle = "rgba(201,163,106,0.07)";
+  ctx.fillRect(x0 + 2, 0, width - 4, level.height * tile);
+  ctx.strokeStyle = "rgba(201,163,106,0.35)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x0 + 3, 0);
+  ctx.lineTo(x0 + 3, level.height * tile);
+  ctx.moveTo(x0 + width - 3, 0);
+  ctx.lineTo(x0 + width - 3, level.height * tile);
+  ctx.stroke();
+  // 各层门槛刻线与层标
+  ctx.font = "10px ui-serif, Palatino, serif";
+  ctx.textAlign = "right";
+  for (const floor of order.floors) {
+    const fy = floor.row * tile + tile / 2;
+    ctx.strokeStyle = brass;
+    ctx.beginPath();
+    ctx.moveTo(x0 - 5, fy);
+    ctx.lineTo(x0 + 5, fy);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(232,215,184,0.75)";
+    ctx.fillText(floor.label, x0 - 7, fy + 3);
+  }
+  // 厢板（按厢高插值的浮点行）
+  const row = carRowFloat(level);
+  const py = row * tile + tile * 0.18;
+  const berthed = berthState(level);
+  // 缆绳
+  ctx.strokeStyle = "rgba(138,147,160,0.6)";
+  ctx.beginPath();
+  ctx.moveTo(x0 + width / 2, 0);
+  ctx.lineTo(x0 + width / 2, py);
+  ctx.stroke();
+  // 厢体
+  ctx.fillStyle = "#4a3b2a";
+  ctx.fillRect(x0 + 4, py, width - 8, tile * 0.64);
+  ctx.strokeStyle = berthed ? moss : brass;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x0 + 4, py, width - 8, tile * 0.64);
+  ctx.fillStyle = berthed ? moss : brass;
+  ctx.fillRect(x0 + 4, py + tile * 0.64 - 4, width - 8, 4);
+  if (berthed) {
+    ctx.fillStyle = ink;
+    ctx.font = "11px ui-serif, Palatino, serif";
+    ctx.textAlign = "center";
+    ctx.fillText("平", x0 + width / 2, py + tile * 0.64 - 8);
+  }
+}
+
+function paintRiders(ctx: CanvasRenderingContext2D, level: RuntimeLevel, tile: number): void {
+  const lift = level.lift;
+  if (!lift) return;
+  const row = carRowFloat(level);
+  for (const box of level.boxes) {
+    if (isBoxRiding(level, box.id)) paintBoxAt(ctx, box, row, tile);
+  }
+  if (isPlayerRiding(level)) {
+    paintPlayerAt(ctx, level.player.x, row, tile);
+  }
+}
+
+function paintBoxAt(ctx: CanvasRenderingContext2D, box: Box, row: number, tile: number): void {
+  const px = box.x * tile + 8;
+  const py = row * tile + 8;
+  const fill = box.kind === "timber" ? rust : box.kind === "iron" ? steel : "rgba(126,200,200,0.55)";
+  ctx.fillStyle = fill;
+  ctx.fillRect(px, py, tile - 16, tile - 16);
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(px, py, tile - 16, tile - 16);
+}
+
+function paintPlayerAt(ctx: CanvasRenderingContext2D, x: number, row: number, tile: number): void {
+  const cx = x * tile + tile / 2;
+  const cy = row * tile + tile / 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 13, 0, Math.PI * 2);
+  ctx.fillStyle = brass;
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = ink;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx - 4, cy - 3, 2, 0, Math.PI * 2);
+  ctx.arc(cx + 4, cy - 3, 2, 0, Math.PI * 2);
+  ctx.fillStyle = ink;
+  ctx.fill();
 }
 
 function paintTile(

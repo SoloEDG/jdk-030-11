@@ -1,4 +1,5 @@
 import { cellAt, inBounds } from "@/features/atlas";
+import { carCells, isBoxRiding, isPlayerRiding } from "@/features/winch/lib/runtime";
 import { sameCell } from "@/shared/document";
 import type { GameDocument, Vec } from "@/shared/types";
 
@@ -13,6 +14,10 @@ function groundOpen(document: GameDocument, x: number, y: number): boolean {
   const patch = document.level.floors.find((floor) => floor.x === x && floor.y === y);
   if (patch?.morph === "seal" && patch.active) return false;
   if (patch?.morph === "bridge" && patch.active) return true;
+  if (document.level.lift) {
+    // 厢板平层（或驻车一层）时，井道里的厢板格可踩
+    if (carCells(document.level).some((cell) => cell.x === x && cell.y === y)) return true;
+  }
   return tile !== "wall" && tile !== "gap";
 }
 
@@ -22,10 +27,11 @@ export function isPassable(document: GameDocument, at: Vec, query: PassQuery = {
   const door = document.level.doors.find((item) => item.x === at.x && item.y === at.y);
   if (door && !door.open) return false;
   const box = document.level.boxes.find(
-    (item) => sameCell(item, at) && item.id !== query.ignoreBoxId,
+    (item) => sameCell(item, at) && item.id !== query.ignoreBoxId && !isBoxRiding(document.level, item.id),
   );
   if (box) return false;
-  if (!query.ignorePlayer && sameCell(document.level.player, at)) return false;
+  if (!query.ignorePlayer && !isPlayerRiding(document.level) && sameCell(document.level.player, at))
+    return false;
   return true;
 }
 

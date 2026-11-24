@@ -1,15 +1,18 @@
+import { isBoxRiding, isPlayerRiding } from "@/features/winch/lib/runtime";
 import { sameCell } from "@/shared/document";
 import type { Box, GameDocument, Vec } from "@/shared/types";
 
 export type Occupant = "player" | "box" | null;
 
 export function boxAt(document: GameDocument, at: Vec, ignoreId?: string): Box | undefined {
-  return document.level.boxes.find((box) => sameCell(box, at) && box.id !== ignoreId);
+  return document.level.boxes.find(
+    (box) => sameCell(box, at) && box.id !== ignoreId && !isBoxRiding(document.level, box.id),
+  );
 }
 
 export function occupantAt(document: GameDocument, at: Vec, ignoreBoxId?: string): Occupant {
   if (boxAt(document, at, ignoreBoxId)) return "box";
-  if (sameCell(document.level.player, at)) return "player";
+  if (!isPlayerRiding(document.level) && sameCell(document.level.player, at)) return "player";
   return null;
 }
 

@@ -41,6 +41,59 @@ export interface FloorPatch {
   active: boolean;
 }
 
+/** 圆弧片: r0 === r1 为定半径 dwell；直边片: r0 -> r1 等速斜边（可翻面）。 */
+export interface CamPieceSpec {
+  id: string;
+  kind: "arc" | "ramp";
+  span: number;
+  r0: number;
+  r1: number;
+}
+
+export interface LiftFloorSpec {
+  id: string;
+  label: string;
+  height: number;
+  row: number;
+}
+
+export interface LiftStopSpec {
+  id: string;
+  angle: number;
+  floorId: string;
+}
+
+/** 工单：货梯凸轮的设计指标与给定片库。 */
+export interface LiftOrder {
+  shaftCols: number[];
+  floors: LiftFloorSpec[];
+  stops: LiftStopSpec[];
+  windowDeg: number;
+  tolerance: number;
+  sleeveRadius: number;
+  boreRadius: number;
+  rollerOptions: number[];
+  filletMin: number;
+  filletOptions: number[];
+  pieces: CamPieceSpec[];
+  crankStepDeg: number;
+}
+
+/** 一份凸轮盘设计：片序 + 翻面 + 滚轮直径 + 内圆角。同一卷盘所有停靠点共用。 */
+export interface CamDesign {
+  order: string[];
+  flips: Record<string, boolean>;
+  rollerDia: number;
+  fillet: number;
+}
+
+export interface LiftRuntime {
+  order: LiftOrder;
+  design: CamDesign | null;
+  angle: number;
+  riding: { player: boolean; boxIds: string[] };
+}
+
 export interface RuntimeLevel {
   id: string;
   title: string;
@@ -53,6 +106,7 @@ export interface RuntimeLevel {
   plates: Plate[];
   doors: Door[];
   floors: FloorPatch[];
+  lift: LiftRuntime | null;
 }
 
 export interface Attempt {
@@ -77,7 +131,7 @@ export interface MoveResult {
   moved: boolean;
   pushed: boolean;
   boxId?: string;
-  reason?: "blocked" | "cleared" | "idle";
+  reason?: "blocked" | "cleared" | "idle" | "riding";
 }
 
 export const BOX_LABEL: Record<BoxKind, string> = {
